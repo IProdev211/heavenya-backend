@@ -144,6 +144,6 @@ io.on('connection', function(socket: any) {
   });
 });
 
-const server = http.listen(5500, function() {
+const server = http.listen( process.env.PORT || 5500, function() {
   console.log('listening on *5500');
 });
