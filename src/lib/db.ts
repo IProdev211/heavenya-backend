@@ -178,7 +178,6 @@ export function createEmailVerificationRequest(
       db.collection(emailVerificationCollection)
         .findOne({ "user.username": userData.username })
         .then(evu => {
-          console.log(evu)
           if (evu == null) {
             emailVerification
               .save()
@@ -251,7 +250,7 @@ export function doesUserExist(user: string): Promise<boolean> {
 export function doesUserExistReturn(user: string): Promise<any> {
   return new Promise<any>((resolve, reject) => {
     db.collection('users')
-      .findOne({ username: user.toString() })
+      .findOne({ "username": user.toString() })
       .then(u => {
         if (u == null) {
           resolve(null);
@@ -266,8 +265,8 @@ export function doesUserExistReturn(user: string): Promise<any> {
   });
 }
 
-export function doesEventExistReturn(userid: string, name: string ): Promise<any> {
-  
+export function doesEventExistReturn(userid: string, name: string): Promise<any> {
+
   return new Promise<any>((resolve, reject) => {
     db.collection('events')
       .findOne({ userId: userid.toString(), name: name })
@@ -347,12 +346,16 @@ export function getAllEventsDb() {
   return db.collection('events').find({});
 }
 
-export function getEventsDbWithLimit(username: string, pageNum: number, perPage: number) {
-    return db.collection('users')
-      .findOne({ "username": username.toString() })
-      .then(u => {
-        return db.collection('events').find({}).skip(perPage * pageNum).limit(perPage);
-      });
+export function getEventsDbWithLimit(userid: string, pageNum: number, perPage: number) {
+  return db.collection('events')
+    .find({
+      $or: [
+        { $and: [{ status: 'PRIVATE' }, { userId: userid.toString() }] },
+        { status: 'PUBLIC' }
+      ]
+    })
+    .skip(perPage * pageNum)
+    .limit(perPage)
 }
 
 export function searchEventByUser(username: string) {
@@ -368,13 +371,10 @@ export function changeEventPublishDb(
 ) {
   console.log(username)
   db.collection('events')
-    .findOne({ userId: username.toString(), name: name.toString() })
-    .then(e => {
-      let event = new eventsModel(e);
-      event.update(change).then(() => {
-        callback(true);
-      });
-    });
+    .findOneAndUpdate({ userId: username.toString(), name: name.toString() }, { $set: change })
+    .then(() => {
+      callback(true);
+    })
 }
 
 export function getEventDataDb(username: string, name: string) {
@@ -430,10 +430,6 @@ export function getUserById(id: string) {
   })
 }
 
-export function getUserId(username: string) {
-  return db.collection("users").findOne({ "username": username })
-}
-
 export function doesEventExist(eventname: string) {
   return new Promise<boolean>((resolve, reject) => {
     db.collection('events')
@@ -462,4 +458,12 @@ export function deleteOneEvent(
     .then(e => {
       callback(e.value !== null)
     });
+}
+
+export function saveEventToUser(eventname: string, create_user: string, username: string, callback: any) {
+  db.collection('users')
+  .findOneAndUpdate({ "username": username }, { $set: {"save": {"eventname": eventname, "username": create_user}}})
+  .then(() => {
+    callback(true);
+  })
 }

@@ -27,9 +27,11 @@ import {
   sendReport,
   changeUserImage,
   clientGetAllEvents,
-  deleteEvent
+  deleteEvent,
+  clientGetEventsForAnUser
 } from './routes/users';
-import {osRouter, getCPU, Icpu, getRAM, getDISK, Idisk} from './routes/os';
+// import {osRouter, getCPU, Icpu, getRAM, getDISK, Idisk} from './routes/os';
+import {osRouter, getCPU, Icpu, getRAM} from './routes/os';
 
 export let app: express.Express = express();
 
@@ -37,14 +39,17 @@ app.use(bodyParse.json());
 app.use(cors());
 
 // export let defaultServerUrl: string = 'http://admin.heavenya.com/';
-export let defaultServerUrl: string = 'http://localhost:5500/';
+export let defaultServerUrl: string = 'http://heavenya-api.herokuapp.com/';
 
 export let transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 25,
+  host: 'smtp.zoho.com',
+  port: 465,
+  tls:{
+    rejectUnauthorized: false
+  },
   auth: {
     user: 'account@heavenya.com', // generated ethereal user
-    pass: 'Testing123456', // generated ethereal password
+    pass: 'Merliiscool1!', // generated ethereal password
   },
 });
 
@@ -81,6 +86,7 @@ app.use(editUser);
 app.use(userLogin);
 
 app.use(verifyResetCode);
+
 app.use(getImage);
 
 app.use(sendReport);
@@ -92,6 +98,8 @@ app.use(osRouter);
 app.use(clientGetAllEvents);
 
 app.use(deleteEvent);
+
+app.use(clientGetEventsForAnUser);
 
 var http = require('http').Server(app);
 
@@ -112,12 +120,9 @@ app.use((req, res, next) => {
   }
 });
 
-app.listen(80, () => {
-  console.log('running on 80');
-  connect().then(() => {
-    createDummyData((r: boolean) => {
-      console.log(r);
-    });
+connect().then(() => {
+  createDummyData((r: boolean) => {
+    console.log(r);
   });
 });
 
@@ -144,6 +149,6 @@ io.on('connection', function(socket: any) {
   });
 });
 
-const server = http.listen( process.env.PORT || 5500, function() {
+const server = http.listen( (process.env.PORT || 5500), function() {
   console.log('listening on *5500');
 });

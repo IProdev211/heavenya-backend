@@ -1,1 +1,1 @@
-web: node app.js
+web:ts-node-dev --respawn --transpileOnly src/server.ts

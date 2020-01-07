@@ -11,6 +11,8 @@ import {
 } from '../lib/db';
 import url from 'url';
 import {sendEmail} from '../lib/utils';
+import ejs from "ejs";
+import path from 'path';
 
 export let signUpRouter: Router = express.Router();
 
@@ -25,7 +27,7 @@ signUpRouter.post(
     }
   },
   (req, res) => {
-    let userData = req.body.userData;
+    let userData = req.body.userData
     //unique verification link:
     let verificationLink: string = `${defaultServerUrl}verification?u=${userData.username}`;
 
@@ -36,20 +38,25 @@ signUpRouter.post(
         if (r.error !== undefined) {
           res.status(400).send(r);
         } else {
-          sendEmail(
-            userData.email,
-            'Heavenya - Verification link',
-            '<b>THIS IS A TEST MESSAGE SENT FROM PRIVATE SERVER... VERIFICATION LINK: </b>' +
-              verificationLink,
-          )
-            .then(() => {
-              res
-                .status(200)
-                .send({message: 'Email verification request created'});
-            })
-            .catch(err => {
-              res.status(400).send({error: err});
-            });
+          ejs.renderFile(__dirname + "/email_template.ejs", { verificationLink: verificationLink }, function (err: any, data: any) {
+            if (err) {
+                console.log(err);
+            } else {
+              sendEmail(
+                userData.email,
+                'Heavenya - Confirmation link',
+                data
+              )
+              .then(() => {
+                res
+                  .status(200)
+                  .send({message: 'Email verification request created'});
+              })
+              .catch(err => {
+                res.status(400).send({error: err});
+              });
+            }
+          })
         }
       }
     });
@@ -61,7 +68,13 @@ export let verification: Router = express.Router();
 verification.get('/verification', (req, res) => {
   let username = url.parse(req.url, true).query.u;
   verificateEmail(String(username), (r: any) => {
-    r == true ? res.sendStatus(200) : res.sendStatus(500);
+    if( r )  
+    {
+      res.sendFile(path.resolve(`./src/routes/email_verified.html`))
+    } else 
+    {
+      res.sendStatus(500);
+    }
   });
 });
 

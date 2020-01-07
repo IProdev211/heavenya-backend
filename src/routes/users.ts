@@ -1,4 +1,4 @@
-import express, {Router} from 'express';
+import express, { Router } from 'express';
 import {
   doesUserExist,
   doesUserExistReturn,
@@ -14,15 +14,22 @@ import {
   editUserDb,
   doesEmailExist,
   changeUserImageDb,
-  getUserById,
-  getUserId
+  getUserById
 } from '../lib/db';
 import url from 'url';
 import multer from 'multer';
-import {IEventsN} from '../lib/schemas';
-import fs from 'fs';
+import { IEventsN } from '../lib/schemas';
 
-let uploads = multer({dest: './uploads'});
+const Storage = multer.diskStorage({
+  destination(req, file, callback) {
+    callback(null, './uploads');
+  },
+  filename(req, file, callback) {
+    callback(null, `${file.fieldname}_${Date.now()}_${file.originalname}`);
+  },
+});
+
+const uploads = multer({ storage: Storage });
 
 export let doesUserExistRouter: Router = express.Router();
 doesUserExistRouter.get('/doesUserExist', (req, res) => {
@@ -39,37 +46,40 @@ export let changeUserImage: Router = express.Router();
 
 changeUserImage.post(
   '/users/image/change',
-  uploads.single('photo'),
+  uploads.array('photo', 3),
   (req, res) => {
-    if (!req.file.mimetype.includes('image')) {
-      res.status(400).send({error: 'NOT IMAGE TYPE'});
-    }
+    if (req.file) {
+      console.log("req.filefilefile", req.file)
+      if (!req.file.mimetype.includes('image')) {
+        res.status(400).send({ error: 'NOT IMAGE TYPE' });
+      }
 
-    if (req.file.size > 2e6) {
-      res.status(400).send({error: 'SIZE IS MORE THAN 2MBS'});
+      if (req.file.size > 2e6) {
+        res.status(400).send({ error: 'SIZE IS MORE THAN 2MBS' });
+      }
     }
 
     let userData = req.body;
-
-    doesUserExistReturn(userData.username).then((u)=>{
-      if(u == null){
-        doesEmailExist(userData.username).then((ue)=>{
-          if(ue == null){
-            res.status(400).send({error:"USERNAME NOT FOUND"})
-          }else{
-            changeUserImageDb(ue["_id"], req.file.filename).then(()=>{
+    console.log(userData)
+    doesUserExistReturn(userData.username).then((u) => {
+      if (u == null) {
+        doesEmailExist(userData.username).then((ue) => {
+          if (ue == null) {
+            res.status(400).send({ error: "USERNAME NOT FOUND" })
+          } else {
+            changeUserImageDb(ue["_id"], req.file.filename).then(() => {
               res.send()
-            }).catch((err)=>{
-              res.status(500).send({error:err})
+            }).catch((err) => {
+              res.status(500).send({ error: err })
             })
           }
         })
-      }else{
-        changeUserImageDb(u["_id"], req.file.filename).then(()=>{
+      } else {
+        changeUserImageDb(u["_id"], req.file.filename).then(() => {
           res.send()
-        }).catch((err)=>{
+        }).catch((err) => {
           console.error(err)
-          res.status(500).send({error:err})
+          res.status(500).send({ error: err })
         })
       }
     })
@@ -78,19 +88,22 @@ changeUserImage.post(
 
 export let createEvent: Router = express.Router();
 
-createEvent.post('/createEvent', uploads.single('photo'), (req, res) => {
-  if (!req.file.mimetype.includes('image')) {
-    res.status(400).send({error: 'NOT IMAGE TYPE'});
-  }
+createEvent.post('/createEvent', uploads.array('photo', 3), (req, res) => {
+  if (req.file) {
+    if (!req.file.mimetype.includes('image')) {
+      res.status(400).send({ error: 'NOT IMAGE TYPE' });
+    }
 
-  if (req.file.size > 2e6) {
-    res.status(400).send({error: 'SIZE IS MORE THAN 2MBS'});
+    if (req.file.size > 2e6) {
+      res.status(400).send({ error: 'SIZE IS MORE THAN 2MBS' });
+    }
   }
 
   doesUserExistReturn(req.body.username).then(u => {
     if (u == null) {
-      res.status(400).send({error: 'NO USER FOUND'});
+      res.status(400).send({ error: 'NO USER FOUND' });
     } else {
+      const filename = req.file?`${req.file.filename}`:`null`;
       let data: IEventsN = {
         date: new Date(Number(req.body.date) * 1000),
         endTime: new Date(Number(req.body.endTime) * 1000),
@@ -102,17 +115,17 @@ createEvent.post('/createEvent', uploads.single('photo'), (req, res) => {
         eventuality: req.body.eventuality,
         location: req.body.location,
         numberOfSpots: req.body.numberOfSpots,
-        photo: `${req.file.filename}`,
+        photo: filename,
         status: req.body.status,
         userId: u['_id'],
       };
       createUserEvent(data)
         .then(() => {
-          res.status(200).send({message: 'EVENT CREATED'});
+          res.status(200).send({ message: 'EVENT CREATED' });
         })
         .catch(e => {
           console.error(e);
-          res.status(500).send({error: 'ERROR TRYING TO CREATE EVENT'});
+          res.status(500).send({ error: 'ERROR TRYING TO CREATE EVENT' });
         });
     }
   });
@@ -125,7 +138,7 @@ getNumberOfSpots.get('/events/numberSpotsAvailable', (req, res) => {
 
   doesUserExistReturn(eventData.username).then(u => {
     if (u == null) {
-      res.status(400).send({error: 'USER NOT FOUND'});
+      res.status(400).send({ error: 'USER NOT FOUND' });
     } else {
       let sendError: boolean = true;
       //console.log(u)
@@ -134,12 +147,12 @@ getNumberOfSpots.get('/events/numberSpotsAvailable', (req, res) => {
           console.log(e);
           if (e.name == eventData.name) {
             sendError = false;
-            res.send({numberSpotsAvailable: e.numberOfSpots - e.going.length});
+            res.send({ numberSpotsAvailable: e.numberOfSpots - e.going.length });
           }
         })
         .then(() => {
           if (sendError == true) {
-            res.status(400).send({error: 'EVENT NOT FOUND'});
+            res.status(400).send({ error: 'EVENT NOT FOUND' });
           }
         });
     }
@@ -155,7 +168,6 @@ getEventData.get('/events/getEventData', (req, res) => {
     console.log(eventData.name);
     getEventDataDb(u['_id'], eventData.name)
       .then(e => {
-        console.log(e);
         res.send(e);
       })
       .catch(e => {
@@ -227,25 +239,25 @@ userLogin.post('/login', (req, res) => {
 
   doesUserExistReturn(userData.username).then(u => {
     if (u == null) {
-      doesEmailExist(userData.username).then((ue)=>{
-        if(ue == null){
-          res.status(400).send({error: 'USER DOES NOT EXIST'});
-        }else{
+      doesEmailExist(userData.username).then((ue) => {
+        if (ue == null) {
+          res.status(400).send({ error: 'USER DOES NOT EXIST' });
+        } else {
           if (userData.password == ue.password) {
-            res.status(200).send({message: 'USER LOGED IN'});
+            res.status(200).send({ message: 'USER LOGED IN' });
           } else {
             console.log(`${userData.password}   ${ue.password}`);
-            res.status(400).send({error: 'BAD PASSWORD'});
+            res.status(400).send({ error: 'BAD PASSWORD' });
           }
         }
       })
-      
+
     } else {
       if (userData.password == u.password) {
-        res.status(200).send({message: 'USER LOGED IN'});
+        res.status(200).send({ message: 'USER LOGED IN' });
       } else {
         console.log(`${userData.password}   ${u.password}`);
-        res.status(400).send({error: 'BAD PASSWORD'});
+        res.status(400).send({ error: 'BAD PASSWORD' });
       }
     }
   });
@@ -257,11 +269,11 @@ editUser.post('/editUser', (req, res) => {
   let userData = req.body.userData;
 
   if (userData == null) {
-    res.status(400).send({error: 'NO USER DATA FOUND'});
+    res.status(400).send({ error: 'NO USER DATA FOUND' });
   } else {
     editUserDb(userData.username, userData.change, (r: any) => {
       if (r == false) {
-        res.status(400).send({error: 'USERNAME NOT FOUND'});
+        res.status(400).send({ error: 'USERNAME NOT FOUND' });
       } else {
         res.send();
       }
@@ -272,7 +284,7 @@ editUser.post('/editUser', (req, res) => {
 export let getImage: Router = express.Router();
 
 import path from 'path';
-import {sendEmail} from '../lib/utils';
+import { sendEmail } from '../lib/utils';
 
 getImage.get('/getImage', (req, res) => {
   let p: any = url.parse(req.url, true).query.p;
@@ -287,7 +299,7 @@ sendReport.post('/sendReport', (req, res) => {
     if (u == null) {
       doesEmailExist(userData.username).then(uE => {
         if (uE == null) {
-          res.status(400).send({error: 'USERNAME NOT FOUND'});
+          res.status(400).send({ error: 'USERNAME NOT FOUND' });
         } else {
           sendEmail(
             'support@heavenya.com',
@@ -300,10 +312,10 @@ sendReport.post('/sendReport', (req, res) => {
             `,
           )
             .then(() => {
-              res.status(200).send({message: 'Email sent'});
+              res.status(200).send({ message: 'Email sent' });
             })
             .catch(err => {
-              res.status(400).send({error: err});
+              res.status(400).send({ error: err });
             });
         }
       });
@@ -319,24 +331,24 @@ sendReport.post('/sendReport', (req, res) => {
         `,
       )
         .then(() => {
-          res.status(200).send({message: 'Email sent'});
+          res.status(200).send({ message: 'Email sent' });
         })
         .catch(err => {
-          res.status(400).send({error: err});
+          res.status(400).send({ error: err });
         });
     }
   });
 });
 
-export let clientGetAllEvents:Router = express.Router();
+export let clientGetAllEvents: Router = express.Router();
 
-clientGetAllEvents.get("/events/getAll", async (req, res)=>{
+clientGetAllEvents.get("/events/getAll", async (req, res) => {
 
   let events = await getAllEventsDb();
 
-  events.toArray(async (err, arrayEvents)=>{
-    for(let i = 0; i < arrayEvents.length; i++){
-      await getUserById(arrayEvents[i].userId).then((u)=>{
+  events.toArray(async (err, arrayEvents) => {
+    for (let i = 0; i < arrayEvents.length; i++) {
+      await getUserById(arrayEvents[i].userId).then((u) => {
         delete arrayEvents[i].userId;
         arrayEvents[i].username = u.username;
       })
@@ -346,28 +358,27 @@ clientGetAllEvents.get("/events/getAll", async (req, res)=>{
 })
 
 
-export let clientGetEventsForAnUser:Router = express.Router();
+export let clientGetEventsForAnUser: Router = express.Router();
 
-clientGetEventsForAnUser.get("/events/getForAnUser", async (req, res)=>{
+clientGetEventsForAnUser.get("/events/getForAnUser", async (req, res) => {
 
   const eventData = req.body.eventData;
   const username = eventData.username;
   const page_num = eventData.page;
 
-  let events = await getEventsDbWithLimit(username, page_num, 10);
-
-  events.toArray(async (err, arrayEvents)=>{
-    for(let i = 0; i < arrayEvents.length; i++){
-      await getUserById(arrayEvents[i].userId).then((u)=>{
+  doesUserExistReturn(username).then(async user => {
+    let events = getEventsDbWithLimit(user["_id"], page_num, 10);
+    events.toArray(async (err, arrayEvents) => {
+      for (let i = 0; i < arrayEvents.length; i++) {
         delete arrayEvents[i].userId;
-        arrayEvents[i].username = u.username;
-      })
-    }
-    res.send(arrayEvents)
+        arrayEvents[i].username = user.username;
+      }
+      res.send(arrayEvents)
+    })
   })
 })
 
-export let deleteEvent:Router = express.Router();
+export let deleteEvent: Router = express.Router();
 
 deleteEvent.get("/events/delete", async (req, res) => {
   const eventData = req.body.eventData;
@@ -375,14 +386,14 @@ deleteEvent.get("/events/delete", async (req, res) => {
   doesUserExistReturn(eventData.username).then(u => {
     if (u) {
       deleteOneEvent(u["_id"], eventData.name, (r: any) => {
-        r == true? res.status(200).send({message: "Deleted"}): res.status(400).send({message: "Not Deleted"});
+        r == true ? res.status(200).send({ message: "Deleted" }) : res.status(400).send({ message: "Not Deleted" });
       })
     }
   })
 })
 
-export let saveEvent:Router = express.Router();
+export let saveEvent: Router = express.Router();
 
-saveEvent.get("/events/save", async(req, res) => {
-  
+saveEvent.get("/events/save", async (req, res) => {
+
 })
